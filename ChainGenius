@@ -1,0 +1,79 @@
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+class ChainGenius:
+    def __init__(self, blockchain: str):
+        self.api_url = f'https://api.blockchair.com/{blockchain}'
+        self.blockchain = blockchain
+
+    def get_blockchain_stats(self) -> dict:
+        """Fetches blockchain statistics."""
+        url = f"{self.api_url}/stats"
+        response = requests.get(url)
+        return response.json()['data']
+
+    def get_latest_block(self) -> dict:
+        """Fetches the latest block data."""
+        url = f"{self.api_url}/blocks?limit=1"
+        response = requests.get(url)
+        return response.json()['data'][0]
+
+    def get_block_data(self, block_id: str) -> dict:
+        """Fetches data for a specific block by its ID."""
+        url = f"{self.api_url}/blocks/{block_id}"
+        response = requests.get(url)
+        return response.json()['data']
+
+    def get_historical_data(self, metric: str, days: int = 30) -> pd.DataFrame:
+        """Fetches historical data for a specific metric."""
+        url = f"{self.api_url}/{metric}?limit=1000"
+        response = requests.get(url)
+        data = response.json().get('data', [])
+        
+        # Assuming the metric data contains a timestamp and value
+        df = pd.DataFrame(data)
+        if 'time' in df.columns:
+            df['time'] = pd.to_datetime(df['time'])
+            df.set_index('time', inplace=True)
+        return df
+
+    def plot_metric_trends(self, metric: str, days: int = 30):
+        """Plots historical trends for a specific blockchain metric."""
+        df = self.get_historical_data(metric, days)
+        if df.empty:
+            print("No historical data found.")
+            return
+
+        plt.figure(figsize=(12, 6))
+        df.plot()
+        plt.title(f'{self.blockchain.capitalize()} {metric.replace("_", " ").title()} Trend')
+        plt.xlabel('Date')
+        plt.ylabel(metric.replace("_", " ").title())
+        plt.grid(True)
+        plt.show()
+
+# Example Usage
+if __name__ == "__main__":
+    blockchain = 'bitcoin'  # Replace with the blockchain of interest, e.g., 'ethereum'
+    chain_genius = ChainGenius(blockchain)
+
+    # Fetch and Display Blockchain Stats
+    stats = chain_genius.get_blockchain_stats()
+    print(f"Blockchain Stats for {blockchain.capitalize()}:")
+    print(stats)
+
+    # Fetch and Display Latest Block Data
+    latest_block = chain_genius.get_latest_block()
+    print("Latest Block Data:")
+    print(latest_block)
+
+    # Fetch and Display Specific Block Data
+    block_id = latest_block['id']  # Replace with a specific block ID if needed
+    block_data = chain_genius.get_block_data(block_id)
+    print(f"Data for Block ID {block_id}:")
+    print(block_data)
+
+    # Plot Historical Block Time Trends
+    chain_genius.plot_metric_trends(metric='block_times', days=30)  # Example metric
